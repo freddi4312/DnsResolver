@@ -1,0 +1,7 @@
+/*
+!/.gitignore
+!/src/
+!/CMakeLists.txt
+!/CMakePresets.json
+!/CMakeSettings.json
+!/RootIP.txt
