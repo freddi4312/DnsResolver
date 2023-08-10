@@ -22,7 +22,8 @@ int main()
   std::cout << result << std::endl;
   */
 
-  Receiver receiver(30000);
+  UdpReceiver receiver(dnsPort);
+  //TcpReceiver receiver(30000);
 
   return receiver.run();
 }

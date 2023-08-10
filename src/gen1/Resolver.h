@@ -18,16 +18,6 @@ extern std::vector<std::string> const rootNsAddrs;
 bool isSameName(std::string const & lhs, std::string const & rhs);
 
 
-struct sock_exception : public std::exception
-{
-  using std::exception::exception;
-
-  explicit sock_exception(sockpp::socket const * socket)
-    : std::exception(socket->last_error_str().c_str())
-  {}
-};
-
-
 struct Query
 {
 public:

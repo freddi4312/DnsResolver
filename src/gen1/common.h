@@ -7,4 +7,6 @@
 
 extern uint16_t const dnsPort;
 
+extern size_t const udpMaxPduSize;
+
 #endif // !COMMON_H

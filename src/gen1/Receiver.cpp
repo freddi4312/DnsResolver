@@ -1,14 +1,11 @@
 #include "Receiver.h"
 #include <thread>
 #include <exception>
+#include <magic_enum.hpp>
+#include <typeinfo>
 
 
-Receiver::Receiver(uint16_t port)
-  : server(sockpp::inet_address("127.0.0.1", dnsPort))
-{}
-
-
-int Receiver::run()
+auto TcpReceiver::run() -> int
 {
   if (!server.listen())
   {
@@ -17,7 +14,24 @@ int Receiver::run()
 
   while (true)
   {
-    sockpp::stream_socket client = server.accept();
+    TcpDnsXmitter client = server.accept();
+    Tins::DNS pdu;
+
+    try
+    {
+       pdu = client.receive();
+    }
+    catch (std::exception & e)
+    {
+      std::cout << e.what() << std::endl;
+      continue;
+    }
+
+    std::thread thread(handleClient, std::move(pdu), std::move(client));
+    thread.detach();
+    //handleClient(std::move(pdu), std::move(client));
+
+    /*
     std::thread thread
     (
       [this](sockpp::stream_socket && client) 
@@ -28,36 +42,59 @@ int Receiver::run()
     );
 
     thread.detach();
+    */
   }
+
+  return 0;
 }
 
 
-void Receiver::handleClient(sockpp::stream_socket && client)
+auto UdpReceiver::run() -> int
+{
+  while (true)
+  {
+
+    //UdpDnsXmitter client = sockpp::datagram_socket(server.clone().release());
+    UdpDnsXmitter client = sockpp::datagram_socket(serverAddr);
+    Tins::DNS pdu;
+
+    try
+    {
+      pdu = client.receive();
+    }
+    catch (std::exception & e)
+    {
+      std::cout << typeid(e).name() << ": " << e.what() << std::endl;
+      continue;
+    }
+
+    //std::thread thread(handleClient, std::move(pdu), std::move(client));
+    //thread.detach();
+    handleClient(std::move(pdu), std::move(client));
+  }
+
+  return 0;
+}
+
+
+void handleClient(Tins::DNS pdu, IDnsXmitter && client)
 {
   ssize_t result = -1;
   uint16_t size = 0;
+  bool hasUnsupportedQuery = false;
 
   try
   {
-    result = client.read_n(&size, sizeof(size));
-    if (result == -1)
-      throw std::exception("read size = 0");
-    
-    size = ntohs(size);
-    std::vector<uint8_t> buffer(size);
-    result = client.read_n(buffer.data(), size);
-    if (result == -1)
-      throw std::exception("couldn't read data");
-
-    Tins::DNS pdu(buffer.data(), size);
-
     for (auto const & query : pdu.queries())
     {
       if (query.query_class() != Tins::DNS::QueryClass::INTERNET ||
         query.query_type() != Tins::DNS::QueryType::A)
       {
+        std::cout << "unsupported query type: " << magic_enum::enum_name(query.query_type()) << std::endl;
+        hasUnsupportedQuery = true;
         continue;
       }
+      
 
       Resolver resolver(query.dname(), Tins::DNS::QueryType::A, Tins::DNS::QueryClass::INTERNET);
       if (resolver.resolve() != 0)
@@ -81,19 +118,16 @@ void Receiver::handleClient(sockpp::stream_socket && client)
     }
 
     pdu.type(Tins::DNS::QRType::RESPONSE);
+    pdu.recursion_available(true);
+    if (hasUnsupportedQuery)
+    {
+      pdu.rcode(4);
+    }
 
-    size = htons(static_cast<uint16_t>(pdu.size()));
-
-    result = client.write_n(&size, sizeof(size));
-    if (result == -1)
-      throw std::exception("size write error");
-
-    result = client.write_n(pdu.serialize().data(), pdu.size());
-    if (result == -1)
-      throw std::exception("data write error");
+    client.send(pdu);
   }
   catch (std::exception & e)
   {
-    std::cout << e.what() << std::endl;
+    std::cout << typeid(e).name() << ": " << e.what() << std::endl;
   }
 }

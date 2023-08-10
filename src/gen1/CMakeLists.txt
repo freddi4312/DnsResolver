@@ -6,6 +6,9 @@ set (SOURCES
   "main.cpp"
   "Receiver.h"
   "Receiver.cpp"
+  "DnsXmitter.h"
+  "DnsXmitter.cpp"
+ "SocketExceptions.h"
 )
 
 add_executable (${TARGET_NAME})

@@ -1,6 +1,8 @@
 #include "Resolver.h"
 #include <algorithm>
 #include <cctype>
+#include "SocketExceptions.h"
+#include <random>
 
 
 uint16_t const dnsPort = 53;
@@ -109,7 +111,7 @@ int Resolver::resolve()
 
 std::string const & Resolver::getRootNsAddr() const
 {
-  static size_t callNo = 0;
+  static size_t callNo = std::rand() % rootNsCount;
 
   return rootNsAddrs[(callNo++) % rootNsCount];
 }
@@ -193,7 +195,7 @@ Tins::DNS Resolver::sendAndReceiveQuery()
   Tins::DNS pdu = makePduDnsQuery(query.sName, query.qType);
   auto buffer = pdu.serialize();
 
-  if (socket.connect(serverAddr) == -1)
+  if (!socket.connect(serverAddr))
   {
     throw sock_exception(&socket);
   }
