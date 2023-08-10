@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 3.13 FATAL_ERROR)
 set (CMAKE_POLICY_DEFAULT_CMP0074 NEW)
 set (CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
-project ("DnsResolver")
+project ("DnsResolver" LANGUAGES CXX)
 
 set (CMAKE_CXX_STANDARD 17)
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
