@@ -33,7 +33,7 @@ std::string const & Resolver::getAddress() const
 }
 
 
-int Resolver::resolve()
+auto Resolver::resolve() -> int
 {
   serverAddr.create(getRootNsAddr(), dnsPort);
 
@@ -109,7 +109,7 @@ int Resolver::resolve()
 }
 
 
-std::string const & Resolver::getRootNsAddr() const
+auto Resolver::getRootNsAddr() const -> std::string const &
 {
   static size_t callNo = std::rand() % rootNsCount;
 
@@ -117,7 +117,7 @@ std::string const & Resolver::getRootNsAddr() const
 }
 
 
-Tins::DNS makePduDnsQuery(std::string const & name, Tins::DNS::QueryType queryType)
+auto makePduDnsQuery(std::string const & name, Tins::DNS::QueryType queryType) -> Tins::DNS
 {
   Tins::DNS::query query
   (
@@ -163,7 +163,7 @@ void Resolver::sendPdu(Tins::DNS & pdu)
 }
 
 
-Tins::DNS Resolver::readPdu()
+auto Resolver::readPdu() -> Tins::DNS
 {
   uint16_t size = 0;
 
@@ -189,7 +189,7 @@ Tins::DNS Resolver::readPdu()
 }
 
 
-Tins::DNS Resolver::sendAndReceiveQuery()
+auto Resolver::sendAndReceiveQuery() -> Tins::DNS
 {
   Query const & query = queryStack.back();
   Tins::DNS pdu = makePduDnsQuery(query.sName, query.qType);
@@ -206,7 +206,7 @@ Tins::DNS Resolver::sendAndReceiveQuery()
 }
 
 
-bool isSameName(std::string const & lhs, std::string const & rhs)
+auto isSameName(std::string const & lhs, std::string const & rhs) -> bool
 {
   return std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
     [](char lhs, char rhs) -> bool

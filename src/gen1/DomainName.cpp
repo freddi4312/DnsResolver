@@ -16,7 +16,7 @@ DomainName::DomainName(std::string name)
 }
 
 
-auto DomainName::cut(int level) -> std::string_view
+auto DomainName::cut(int level) const -> std::string_view
 {
   const size_t begin = label_cuts_[level];
   const size_t size = name_.size() - begin;
@@ -25,13 +25,13 @@ auto DomainName::cut(int level) -> std::string_view
 }
 
 
-auto DomainName::full() -> std::string_view
+auto DomainName::full() const -> std::string_view
 {
   return std::string_view(&name_.front(), name_.size());
 }
 
 
-auto DomainName::labelCount() -> int
+auto DomainName::labelCount() const -> int
 {
   return label_cuts_.size();
 }

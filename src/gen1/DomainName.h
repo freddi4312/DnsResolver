@@ -17,9 +17,9 @@ private:
 
 public:
   DomainName(std::string name);
-  auto cut(int level) -> std::string_view;
-  auto full() -> std::string_view;
-  auto labelCount() -> int;
+  auto cut(int level) const -> std::string_view;
+  auto full() const -> std::string_view;
+  auto labelCount() const -> int;
 };
 
 

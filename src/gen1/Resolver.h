@@ -15,7 +15,7 @@ extern size_t const rootNsCount;
 extern std::vector<std::string> const rootNsAddrs;
 
 
-bool isSameName(std::string const & lhs, std::string const & rhs);
+auto isSameName(std::string const & lhs, std::string const & rhs) -> bool;
 
 
 struct Query
@@ -45,15 +45,15 @@ public:
     : queryStack{ {sName, qType} }, qClass(qClass)
   {}
 
-  int resolve();
-  std::string const & getAddress() const;
+  auto resolve() -> int;
+  auto getAddress() const -> std::string const &;
 
 private:
-  std::string const & getRootNsAddr() const;
-  void Resolver::sendPdu(Tins::DNS & pdu);
-  Tins::DNS Resolver::readPdu();
-  Tins::DNS sendAndReceiveQuery();
-  int handlePdu(Tins::DNS const & pdu) const;
+  auto getRootNsAddr() const -> std::string const &;
+  void sendPdu(Tins::DNS & pdu);
+  auto readPdu() -> Tins::DNS;
+  auto sendAndReceiveQuery() -> Tins::DNS;
+  auto handlePdu(Tins::DNS const & pdu) const -> int;
 };
 
 
