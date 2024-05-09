@@ -1,8 +1,9 @@
 #include "DomainName.h"
+#include <cctype>
 
 
-DomainName::DomainName(std::string name)
-  : name_(std::move(name)), label_cuts_()
+DomainName::DomainName(std::string const & name)
+  : name_(adapt(name)), label_cuts_()
 {
   label_cuts_.push_back(name_.size());
 
@@ -34,4 +35,14 @@ auto DomainName::full() const -> std::string_view
 auto DomainName::labelCount() const -> int
 {
   return label_cuts_.size();
+}
+
+
+auto DomainName::adapt(std::string const & name) -> std::string
+{
+  std::string lower_name;
+  std::transform(name.begin(), name.end(), std::back_inserter(lower_name), 
+    [](char c) -> char {return std::tolower(c); });
+
+  return lower_name;
 }

@@ -11,6 +11,8 @@ set (SOURCES
  "SocketExceptions.h"
  "DomainName.h"
  "DomainName.cpp"
+ "Cache.h" 
+ "Cache.cpp"
 )
 
 add_executable (${TARGET_NAME})
