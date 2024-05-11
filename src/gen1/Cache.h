@@ -11,38 +11,20 @@
 #include <list>
 #include <random>
 #include "DomainName.h"
+#include "Record.h"
 
 
 class Cache
 {
 private:
-  struct RecordName
-  {
-    Tins::DNS::QueryType type;
-    std::string name;
-
-    RecordName(Tins::DNS::QueryType type, const std::string & name)
-      : type(type), name(name)
-    {}
-  };
-
-
-  struct Record
-  {
-    std::string data;
-    std::chrono::system_clock::time_point valid_until;
-
-    Record(const std::string & data, const std::chrono::system_clock::time_point & valid_until)
-      : data(data), valid_until(valid_until)
-    {}
-  };
-
   std::unordered_map<RecordName, std::list<Record>> records_;
   std::mt19937 generator_;
 
 public:
+  Cache(Cache const &) = delete;
   void add(Tins::DNS const & pdu);
   auto get(Tins::DNS::QueryType type, DomainName const & name) -> std::vector<std::string>;
+  void addRootServers(std::vector<std::pair<std::string, std::string>> const & servers);
 
   static auto getInstance() -> Cache &;
 

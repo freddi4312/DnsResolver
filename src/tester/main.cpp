@@ -80,17 +80,46 @@ private:
   }
 
 public:
-  std::string getIp(std::string name)
+  auto getIp(std::string name) -> std::vector<std::string>
   {
     Tins::DNS pdu = makePduDnsQuery(name, Tins::DNS::QueryType::A);
+    std::vector<std::string> ip_list;
+
     if (sendPdu(pdu) == -1 || readPdu(pdu) == -1)
     {
-      return "error";
+      ip_list.push_back("error");
+    }
+    else
+    {
+      for (auto const & rsc : pdu.answers())
+      {
+        //std::string test = rsc.dname();
+        ip_list.push_back(rsc.data());
+      }
     }
 
-    return pdu.answers().front().data();
+    return ip_list;
   }
 };
+
+
+std::string ipListToString(std::vector<std::string> const & ip_list)
+{
+  std::string result = "[";
+
+  for (auto it = ip_list.begin(); it != ip_list.end(); ++it)
+  {
+    if (it != ip_list.begin())
+    {
+      result += ", ";
+    }
+
+    result += *it;
+  }
+  result += ']';
+
+  return result;
+}
 
 
 int main()
@@ -108,8 +137,8 @@ int main()
     }
 
     Tester tester(sockpp::inet_address("127.0.0.1", 30000));
-    std::string result = tester.getIp(name);
-    std::cout << result << '\n' << std::endl;
+    auto result = tester.getIp(name);
+    std::cout << ipListToString(result) << '\n' << std::endl;
   }
 
   return 0;

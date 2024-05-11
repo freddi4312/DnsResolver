@@ -11,9 +11,11 @@ DomainName::DomainName(std::string const & name)
   {
     if (name_[i] == '.')
     {
-      label_cuts_.push_back(i);
+      label_cuts_.push_back(i + 1);
     }
   }
+
+  label_cuts_.push_back(0);
 }
 
 
@@ -22,7 +24,7 @@ auto DomainName::cut(int level) const -> std::string_view
   const size_t begin = label_cuts_[level];
   const size_t size = name_.size() - begin;
 
-  return std::string_view(&name_[level], size);
+  return std::string_view(&name_[begin], size);
 }
 
 
@@ -38,7 +40,7 @@ auto DomainName::labelCount() const -> int
 }
 
 
-auto DomainName::adapt(std::string const & name) -> std::string
+auto adapt(std::string const & name) -> std::string
 {
   std::string lower_name;
   std::transform(name.begin(), name.end(), std::back_inserter(lower_name), 

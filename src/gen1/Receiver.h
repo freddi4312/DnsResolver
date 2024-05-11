@@ -37,6 +37,7 @@ public:
 
 
 void handleClient(Tins::DNS pdu, IDnsXmitter && client);
+std::string ipListToString(std::vector<std::string> const & ip_list);
 
 
 #endif // !RECEIVER_H

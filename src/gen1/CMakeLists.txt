@@ -8,11 +8,12 @@ set (SOURCES
   "Receiver.cpp"
   "DnsXmitter.h"
   "DnsXmitter.cpp"
- "SocketExceptions.h"
- "DomainName.h"
- "DomainName.cpp"
- "Cache.h" 
- "Cache.cpp"
+  "SocketExceptions.h"
+  "DomainName.h"
+  "DomainName.cpp"
+  "Cache.h" 
+  "Cache.cpp"
+  "Record.h"
 )
 
 add_executable (${TARGET_NAME})

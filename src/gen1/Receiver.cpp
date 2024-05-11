@@ -3,6 +3,8 @@
 #include <exception>
 #include <magic_enum.hpp>
 #include <typeinfo>
+#include <sstream>
+#include <numeric>
 
 
 auto TcpReceiver::run() -> int
@@ -27,9 +29,9 @@ auto TcpReceiver::run() -> int
       continue;
     }
 
-    std::thread thread(handleClient, std::move(pdu), std::move(client));
-    thread.detach();
-    //handleClient(std::move(pdu), std::move(client));
+    //std::thread thread(handleClient, std::move(pdu), std::move(client));
+    //thread.detach();
+    handleClient(std::move(pdu), std::move(client));
 
     /*
     std::thread thread
@@ -103,18 +105,45 @@ void handleClient(Tins::DNS pdu, IDnsXmitter && client)
         throw std::exception(msg.c_str());
       }
 
-      std::cout << "resolved " + query.dname() + " to " + resolver.getAddress() << std::endl;
+      std::vector<std::string> ip_list = resolver.getAddress();
+      auto cname_list = resolver.getCanonicalNames();
+      std::string name = cname_list.empty() ? query.dname() : cname_list.back().second;
 
-      Tins::DNS::resource const answer
-      (
-        query.dname(),
-        resolver.getAddress(),
-        Tins::DNS::QueryType::A,
-        Tins::DNS::QueryClass::INTERNET,
-        6000
-      );
+      std::cout << "resolved " + query.dname() + " to " + ipListToString(ip_list) << '\n';
+      std::cout << "    | cnames: ";
+      for (auto const & cname : cname_list)
+      {
+        std::cout << cname.second << ' ';
+      }
+      std::cout << std::endl;
 
-      pdu.add_answer(answer);
+      for (std::string & ip : ip_list)
+      {
+        Tins::DNS::resource const answer
+        (
+          name,
+          std::move(ip),
+          Tins::DNS::QueryType::A,
+          Tins::DNS::QueryClass::INTERNET,
+          6000
+        );
+
+        pdu.add_answer(answer);
+      }
+
+      for (auto & cname : cname_list)
+      {
+        Tins::DNS::resource const answer
+        (
+          std::move(cname.first),
+          std::move(cname.second),
+          Tins::DNS::QueryType::CNAME,
+          Tins::DNS::QueryClass::INTERNET,
+          6000
+        );
+
+        pdu.add_answer(answer);
+      }
     }
 
     pdu.type(Tins::DNS::QRType::RESPONSE);
@@ -130,4 +159,23 @@ void handleClient(Tins::DNS pdu, IDnsXmitter && client)
   {
     std::cout << typeid(e).name() << ": " << e.what() << std::endl;
   }
+}
+
+
+std::string ipListToString(std::vector<std::string> const & ip_list)
+{
+  std::string result = "[";
+
+  for (auto it = ip_list.begin(); it != ip_list.end(); ++it)
+  {
+    if (it != ip_list.begin())
+    {
+      result += ", ";
+    }
+
+    result += *it;
+  }
+  result += ']';
+
+  return result;
 }

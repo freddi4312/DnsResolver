@@ -2,7 +2,7 @@
 #include <algorithm>
 
 
-using clock = std::chrono::system_clock;
+//using clock = std::chrono::system_clock;
 using namespace std::literals::chrono_literals;
 
 
@@ -17,7 +17,7 @@ auto Cache::getInstance() -> Cache &
 
 void Cache::add(Tins::DNS const & pdu)
 {
-  clock::time_point now = clock::now();
+  std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
 
   addFromSection(pdu.authority(), now);
   addFromSection(pdu.answers(), now);
@@ -25,26 +25,33 @@ void Cache::add(Tins::DNS const & pdu)
 }
 
 
-void Cache::addFromSection(Tins::DNS::resources_type const & resources, clock::time_point const & now)
+void Cache::addFromSection(Tins::DNS::resources_type const & resources, std::chrono::system_clock::time_point const & now)
 {
   for (Tins::DNS::resource const & rsc : resources)
   {
-    clock::time_point valid_until = now + 1s * rsc.ttl();
+    if (rsc.query_type() != Tins::DNS::A 
+      && rsc.query_type() != Tins::DNS::NS
+      && rsc.query_type() != Tins::DNS::CNAME)
+    {
+      continue;
+    }
+
+    std::chrono::system_clock::time_point valid_until = now + 1s * rsc.ttl();
 
     RecordName record_name
     (
       static_cast<Tins::DNS::QueryType>(rsc.query_type()),
-      std::string(rsc.dname())
+      adapt(rsc.dname())
     );
 
-    auto record_list = records_[record_name];
+    auto & record_list = records_[record_name];
     bool is_time_updated = false;
 
-    for (auto it = record_list.begin(); it != record_list.end(); )
+    for (auto & record : record_list)
     {
-      if (it->data == rsc.data())
+      if (isSameName(record.data, rsc.data()))
       {
-        it->valid_until = std::max(valid_until, it->valid_until);
+        record.valid_until = std::max(valid_until, record.valid_until);
         is_time_updated = true;
         break;
       }
@@ -52,7 +59,7 @@ void Cache::addFromSection(Tins::DNS::resources_type const & resources, clock::t
 
     if (!is_time_updated)
     {
-      Record record(rsc.data(), valid_until);
+      Record record(adapt(rsc.data()), valid_until);
       record_list.push_back(record);
     }
   }
@@ -61,12 +68,13 @@ void Cache::addFromSection(Tins::DNS::resources_type const & resources, clock::t
 
 auto Cache::get(Tins::DNS::QueryType type, DomainName const & name) -> std::vector<std::string>
 {
-  clock::time_point now = clock::now();
+  std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
   std::vector<std::string> result;
 
-  int label = 0;
+  int label = name.labelCount();
   do
   {
+    label--;
     RecordName record_name(type, std::string(name.cut(label)));
     auto record_it = records_.find(record_name);
 
@@ -91,15 +99,26 @@ auto Cache::get(Tins::DNS::QueryType type, DomainName const & name) -> std::vect
       }
     }
 
-    label++;
-  } while (type == Tins::DNS::QueryType::NS && label < name.labelCount() && result.empty());
+  } while (type == Tins::DNS::NS && label > 0 && result.empty());
   // looping to root for a NS query type
 
   // random shuffling root name servsers list
-  if (label == name.labelCount())
+  if (label == 0)
   {
     std::shuffle(result.begin(), result.end(), generator_);
   }
 
   return result;
+}
+
+
+void Cache::addRootServers(std::vector<std::pair<std::string, std::string>> const & servers)
+{
+  std::chrono::system_clock::time_point valid_until = std::chrono::system_clock::time_point::max();
+
+  for (auto const & server : servers)
+  {
+    records_[{Tins::DNS::NS, ""}].emplace_back(server.first, valid_until);
+    records_[{Tins::DNS::A, server.first}].emplace_back(server.second, valid_until);
+  }
 }

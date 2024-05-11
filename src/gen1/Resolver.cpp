@@ -3,36 +3,214 @@
 #include <cctype>
 #include "SocketExceptions.h"
 #include <random>
+#include "Cache.h"
 
 
 uint16_t const dnsPort = 53;
 
-size_t const rootNsCount = 13;
 
-std::vector<std::string> const rootNsAddrs =
-{
-  "198.41.0.4",
-  "199.9.14.201",
-  "192.33.4.12",
-  "199.7.91.13",
-  "192.203.230.10",
-  "192.5.5.241",
-  "192.112.36.4",
-  "198.97.190.53",
-  "192.36.148.17",
-  "192.58.128.30",
-  "193.0.14.129",
-  "199.7.83.42",
-  "202.12.27.33"
-};
-
-
-std::string const & Resolver::getAddress() const
+auto Resolver::getAddress() const -> std::vector<std::string>
 {
   return answerAddr;
 }
 
 
+auto Resolver::getCanonicalNames() const -> std::vector<std::pair<std::string, std::string>>
+{
+  return canonicalNames;
+}
+
+
+auto Resolver::resolve() -> int
+{
+  Cache & cache = Cache::getInstance();
+
+  while (!queryStack.empty())
+  {
+    if (queryStack.top().type != Tins::DNS::A)
+    {
+      return -1;
+    }
+
+    fillQueryFromCache();
+    Query & query = queryStack.top();
+    if (!query.answer.empty())
+    {
+      queryStack.pop();
+      continue;
+    }
+
+    if (query.nsServers.empty())
+    {
+      return -1; // no root name servers in cache;
+    }
+
+    bool is_next_data_obtained = false;
+    bool is_answer_obtained = false;
+
+    for (auto server_it  = query.nsServers.begin(); server_it != query.nsServers.end(); )
+    {
+      if (server_it->ip.empty())
+      {
+        Query new_query(server_it->name, Tins::DNS::A, server_it->ip);
+        queryStack.push(std::move(new_query));
+        break;
+      }
+
+      for (std::string const & ip : server_it->ip)
+      {
+        serverAddr.create(ip, dnsPort);
+        Tins::DNS pdu = sendAndReceiveQuery();
+        cache.add(pdu);
+
+        for (auto const & answer : pdu.answers())
+        {
+          if (!isSameName(answer.dname(), query.name))
+          {
+            continue;
+          }
+
+          if (answer.query_type() == Tins::DNS::A
+            && isSameName(answer.dname(), query.name))
+          {
+            query.answer.push_back(answer.data());
+            is_answer_obtained = true;
+          }
+
+          if (answer.query_type() == Tins::DNS::CNAME)
+          {
+            std::string cname = answer.data();
+            canonicalNames.emplace_back(query.name, cname);
+            Query new_query(cname, query.type, query.answer);
+            queryStack.pop();
+            queryStack.push(std::move(new_query));
+            is_next_data_obtained = true;
+            break;
+          }
+        }
+
+        if (is_answer_obtained || is_next_data_obtained)
+        {
+          break;
+        }
+
+        std::list<Query::Server> new_ns_servers;
+        for (auto const & name_rsc : pdu.authority())
+        {
+          if (name_rsc.query_type() != Tins::DNS::NS)
+          {
+            continue;
+          }
+
+          std::vector<std::string> ip_list;
+          for (auto const & ip_rsc : pdu.additional())
+          {
+            if (isSameName(ip_rsc.dname(), name_rsc.data()) && ip_rsc.query_type() == Tins::DNS::QueryType::A)
+            {
+              ip_list.push_back(ip_rsc.data());
+            }
+          }
+
+          if (ip_list.empty())
+          {
+            new_ns_servers.emplace_back(name_rsc.data(), ip_list);
+          }
+          else
+          {
+            new_ns_servers.emplace_front(name_rsc.data(), std::move(ip_list));
+          }
+        }
+
+        if (!new_ns_servers.empty())
+        {
+          is_next_data_obtained = true;
+          query.nsServers = std::move(new_ns_servers);
+          break;
+        }
+      }
+
+      if (is_answer_obtained || is_next_data_obtained)
+      {
+        break;
+      }
+    }
+
+    if (is_answer_obtained)
+    {
+      queryStack.pop();
+    }
+    else if (!is_next_data_obtained && queryStack.empty())
+    {
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
+
+void Resolver::fillQueryFromCache()
+{
+  Cache & cache = Cache::getInstance();
+  Query & query = queryStack.top();
+
+  while (true)
+  {
+    auto result = cache.get(Tins::DNS::CNAME, query.name);
+    if (result.empty())
+    {
+      break;
+    }
+
+    std::string cname = result.front();
+    if (queryStack.size() == 1)
+    {
+      canonicalNames.emplace_back(query.name, cname);
+    }
+
+    query.name = cname;
+  }
+
+  if (query.nsServers.empty())
+  {
+    query.answer = cache.get(Tins::DNS::A, query.name);
+    if (!query.answer.empty())
+    {
+      return;
+    }
+
+    auto ns_servers = cache.get(Tins::DNS::NS, query.name);
+    for (std::string & server_name : ns_servers)
+    {
+      query.nsServers.push_back(Query::Server(std::move(server_name), {}));
+    }
+  }
+
+  std::list<Query::Server> no_ip_servers;
+
+  for (auto server_it = query.nsServers.begin(); server_it != query.nsServers.end();)
+  {
+    if (server_it->ip.empty())
+    {
+      server_it->ip = cache.get(Tins::DNS::A, server_it->name);
+    }
+
+    if (server_it->ip.empty())
+    {
+      no_ip_servers.emplace_back(std::move(*server_it));
+      server_it = query.nsServers.erase(server_it);
+    }
+    else
+    {
+      ++server_it;
+    }
+  }
+
+  query.nsServers.splice(query.nsServers.end(), no_ip_servers);
+}
+
+
+/*
 auto Resolver::resolve() -> int
 {
   serverAddr.create(getRootNsAddr(), dnsPort);
@@ -107,15 +285,16 @@ auto Resolver::resolve() -> int
 
   return 0;
 }
+*/
 
-
+/*
 auto Resolver::getRootNsAddr() const -> std::string const &
 {
   static size_t callNo = std::rand() % rootNsCount;
 
   return rootNsAddrs[(callNo++) % rootNsCount];
 }
-
+*/
 
 auto makePduDnsQuery(std::string const & name, Tins::DNS::QueryType queryType) -> Tins::DNS
 {
@@ -191,8 +370,8 @@ auto Resolver::readPdu() -> Tins::DNS
 
 auto Resolver::sendAndReceiveQuery() -> Tins::DNS
 {
-  Query const & query = queryStack.back();
-  Tins::DNS pdu = makePduDnsQuery(query.sName, query.qType);
+  Query const & query = queryStack.top();
+  Tins::DNS pdu = makePduDnsQuery(query.name, query.type);
   auto buffer = pdu.serialize();
 
   if (!socket.connect(serverAddr))
