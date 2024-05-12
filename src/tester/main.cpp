@@ -124,7 +124,7 @@ std::string ipListToString(std::vector<std::string> const & ip_list)
 
 int main()
 {
-  sockpp::socket_initializer socketInit;
+  sockpp::socket_initializer::initialize();
 
   while (true)
   {

@@ -198,7 +198,7 @@ int main()
   std::cout << __cplusplus << std::endl;
 #endif // MSVC_CPLUSPLSU
   
-  sockpp::socket_initializer SocketInit{};
+  sockpp::socket_initializer::initialize();
 
   GlobalCache &globalCache = GlobalCache::getInstance();
   uint32_t const ttl_max = (std::numeric_limits<uint32_t>::max)();
@@ -340,7 +340,7 @@ int main_2()
 
 int main_1()
 {
-	sockpp::socket_initializer SocketInit{};
+	sockpp::socket_initializer::initialize();
 
 	std::vector<std::string> RootIP{"198.41.0.4", "199.9.14.201"};
 	/*
