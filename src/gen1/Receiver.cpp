@@ -92,7 +92,7 @@ void handleClient(Tins::DNS pdu, IDnsXmitter && client)
       if (query.query_class() != Tins::DNS::QueryClass::INTERNET ||
         query.query_type() != Tins::DNS::QueryType::A)
       {
-        std::cout << "unsupported query type: " << magic_enum::enum_name(query.query_type()) << std::endl;
+        //std::cout << "unsupported query type: " << magic_enum::enum_name(query.query_type()) << std::endl;
         hasUnsupportedQuery = true;
         continue;
       }
@@ -109,11 +109,14 @@ void handleClient(Tins::DNS pdu, IDnsXmitter && client)
       auto cname_list = resolver.getCanonicalNames();
       std::string name = cname_list.empty() ? query.dname() : cname_list.back().second;
 
-      std::cout << "resolved " + query.dname() + " to " + ipListToString(ip_list) << '\n';
-      std::cout << "    | cnames: ";
-      for (auto const & cname : cname_list)
+      std::cout << "resolved " + query.dname() + " to " + ipListToString(ip_list);
+      if (!cname_list.empty())
       {
-        std::cout << cname.second << ' ';
+        std::cout << "\n    | cnames: ";
+        for (auto const & cname : cname_list)
+        {
+          std::cout << cname.second << ' ';
+        }
       }
       std::cout << std::endl;
 

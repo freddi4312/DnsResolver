@@ -48,7 +48,9 @@ auto Resolver::resolve() -> int
     bool is_next_data_obtained = false;
     bool is_answer_obtained = false;
 
-    for (auto server_it  = query.nsServers.begin(); server_it != query.nsServers.end(); )
+    for (auto server_it  = query.nsServers.begin(); 
+         server_it != query.nsServers.end(); 
+         server_it = query.nsServers.erase(server_it))
     {
       if (server_it->ip.empty())
       {
@@ -57,10 +59,25 @@ auto Resolver::resolve() -> int
         break;
       }
 
+      if (server_it->ip.front() == "no_ip")
+      {
+        continue;
+      }
+
       for (std::string const & ip : server_it->ip)
       {
         serverAddr.create(ip, dnsPort);
-        Tins::DNS pdu = sendAndReceiveQuery();
+        Tins::DNS pdu;
+
+        try
+        {
+          pdu = sendAndReceiveQuery();
+        }
+        catch (std::exception & e)
+        {
+          break;
+        }
+
         cache.add(pdu);
 
         for (auto const & answer : pdu.answers())
@@ -139,9 +156,16 @@ auto Resolver::resolve() -> int
     {
       queryStack.pop();
     }
-    else if (!is_next_data_obtained && queryStack.empty())
+    else if (!is_next_data_obtained)
     {
-      return -1;
+      if (queryStack.size() == 1)
+      {
+        return -1;
+      }
+      else if (query.nsServers.size() == 0)
+      {
+        query.answer.push_back("no_ip");
+      }
     }
   }
 

@@ -11,6 +11,7 @@
 #include <exception>
 #include <list>
 #include <stack>
+#include <chrono>
 
 /*
 extern size_t const rootNsCount;
@@ -60,6 +61,11 @@ public:
     : queryStack(), qClass(qClass)
   {
     queryStack.emplace(sName, qType, answerAddr);
+
+    using namespace std::literals::chrono_literals;
+    std::chrono::duration timeout = 2s;
+    socket.read_timeout(timeout);
+    socket.write_timeout(timeout);
   }
 
   auto resolve() -> int;
