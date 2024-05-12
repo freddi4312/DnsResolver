@@ -5,7 +5,7 @@
 
 int main()
 {
-  sockpp::socket_initializer SocketInit;
+  sockpp::socket_initializer::initialize();
 
   std::vector<std::pair<std::string, std::string>> const root_servers =
   {
